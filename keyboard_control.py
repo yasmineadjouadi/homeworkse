@@ -8,15 +8,15 @@ from device_scanner import scan_all
 user32 = ctypes.windll.user32
 kernel32 = ctypes.windll.kernel32
 
-KEYUP = 0x0002                      
-INJECTED = 0x10                     
-KEY_UP_MESSAGES = (0x0101, 0x0105)  
-PNPUTIL_OK = (0, 3010)               
+KEYUP = 0x0002
+INJECTED = 0x10
+KEY_UP_MESSAGES = (0x0101, 0x0105)
+PNPUTIL_OK = (0, 3010)
 MAX_SECONDS = 60
 
 VK_CAPS = 0x14
 LEDS = {"Verr. Maj": VK_CAPS, "Verr. Num": 0x90, "Arrêt défil.": 0x91}
-MODIFIERS = {1: 0x10, 2: 0x11, 4: 0x12}  
+MODIFIERS = {1: 0x10, 2: 0x11, 4: 0x12}
 
 # Types nécessaires au hook clavier
 HOOKPROC = ctypes.WINFUNCTYPE(ctypes.c_ssize_t, ctypes.c_int, wintypes.WPARAM, wintypes.LPARAM)
@@ -85,7 +85,7 @@ def run_hook(callback, seconds):
     return True
 
 
-# ---------- État du clavier (partie 1) ----------
+# ---------- État du clavier ----------
 
 def get_keyboards():
     return [d for d in scan_all() if d.category == "Clavier" and d.device_id]
@@ -104,7 +104,7 @@ def show_state():
     return keyboards
 
 
-# ---------- 1. Désactiver temporairement ----------
+# ---------- Désactiver / Activer ----------
 
 def run_pnputil(action, device_id):
     """action : "enable" ou "disable". Retourne True si Windows a accepté."""
@@ -180,8 +180,21 @@ def disable_keyboard(keyboards):
         print("On bloque donc ses touches à la place.")
         block_keys(seconds)
 
+def enable_keyboard(keyboards):
+    if not is_admin():
+        print("Droits administrateur requis : relance le terminal en « Exécuter en tant qu'administrateur ».")
+        return
+    if not keyboards:
+        print("Aucun clavier détecté.")
+        return
+    device = choose_keyboard(keyboards)
+    if device is None:
+        return
+    if run_pnputil("enable", device.device_id):
+        print(f"Clavier réactivé : {device.name}")
 
-# ---------- 2. Changer le rôle d'une touche ----------
+
+# ---------- Changer le rôle d'une touche ----------
 
 def change_key():
     source = ask_letter("Touche à remplacer (une lettre) : ")
@@ -208,7 +221,7 @@ def change_key():
         print("Touche remise à la normale.")
 
 
-# ---------- 3. Voyants ----------
+# ---------- Voyants ----------
 
 def leds_state():
     return "  ".join(f"{name} {'ON' if user32.GetKeyState(vk) & 1 else 'OFF'}"
@@ -232,7 +245,7 @@ def blink_leds():
     print("Retour :", leds_state())
 
 
-# ---------- 4. Écrire un texte ----------
+# ---------- Écrire un texte ----------
 
 def type_text():
     text = input("Texte à écrire : ")
@@ -278,7 +291,8 @@ def main():
         print("2. Changer le rôle d'une touche (temporaire)")
         print("3. Voyants (Maj / Verr. Num / Arrêt défil.)")
         print("4. Écrire un texte automatiquement")
-        print("5. Quitter")
+        print("5. Réactiver le clavier")
+        print("6. Retour au menu principal")
         choice = input("\nChoix : ").strip()
         if choice == "1":
             disable_keyboard(keyboards)
@@ -289,6 +303,8 @@ def main():
         elif choice == "4":
             type_text()
         elif choice == "5":
+            enable_keyboard(keyboards)
+        elif choice == "6":
             break
         else:
             print("Choix invalide.")
